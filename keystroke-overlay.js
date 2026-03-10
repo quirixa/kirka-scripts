@@ -1,145 +1,261 @@
 (function () {
     'use strict';
 
-    const waitForDOM = setInterval(() => {
-        if (document.body && document.head) {
-            clearInterval(waitForDOM);
-            initHUD();
+    let container;
+    let keyboard;
+    let keyMap = {};
+    let fullLayout = true;
+
+    const wait = setInterval(() => {
+        if (document.body) {
+            clearInterval(wait);
+            init();
         }
     }, 100);
 
-    function initHUD() {
-        console.log('[Keystrokes HUD] Init triggered');
+    function init() {
+        container = document.createElement("div");
+        container.style.position = "fixed";
+        container.style.top = "120px";
+        container.style.left = "120px";
+        container.style.zIndex = "9999999";
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.gap = "8px";
+        container.style.cursor = "move";
+
+        document.body.appendChild(container);
+
+        const style = document.createElement('style');
+        style.textContent = `
+            .key.active {
+                background: white !important;
+                color: black !important;
+                transform: scale(0.95);
+            }
+        `;
+        document.head.appendChild(style);
+
+        createToggle();
+        loadLayout();
+        enableDrag();
+
+        // Keyboard events
+        document.addEventListener("keydown", e => {
+            const k = mapKey(e);
+            if (keyMap[k]) keyMap[k].classList.add("active");
+        });
+
+        document.addEventListener("keyup", e => {
+            const k = mapKey(e);
+            if (keyMap[k]) keyMap[k].classList.remove("active");
+        });
+
+        // Mouse events
+        document.addEventListener("mousedown", e => {
+            const btn = e.button;
+            let label = '';
+            if (btn === 0) label = 'LMB';
+            else if (btn === 2) label = 'RMB';
+            else if (btn === 1) label = 'MMB';
+            if (label && keyMap[label]) keyMap[label].classList.add('active');
+        });
+
+        document.addEventListener("mouseup", e => {
+            const btn = e.button;
+            let label = '';
+            if (btn === 0) label = 'LMB';
+            else if (btn === 2) label = 'RMB';
+            else if (btn === 1) label = 'MMB';
+            if (label && keyMap[label]) keyMap[label].classList.remove('active');
+        });
+
+        container.addEventListener('contextmenu', e => e.preventDefault());
+    }
+
+    function createToggle() {
+        const btn = document.createElement("div");
+        btn.textContent = "🔁";
+        btn.className = "toggle-btn";
+        btn.style.background = "rgba(0,0,0,.7)";
+        btn.style.color = "white";
+        btn.style.padding = "6px 10px";
+        btn.style.borderRadius = "8px";
+        btn.style.cursor = "pointer";
+        btn.style.width = "fit-content";
+
+        btn.onclick = () => {
+            fullLayout = !fullLayout;
+            loadLayout();
+        };
+
+        container.appendChild(btn);
+    }
+
+    function loadLayout() {
+        if (keyboard) keyboard.remove();
+        keyMap = {};
+
+        keyboard = fullLayout
+            ? buildFullKeyboard()
+            : buildCompactKeyboard();
+
+        container.appendChild(keyboard);
+    }
+
+    function createKey(label, width = 40) {
+        const k = document.createElement("div");
+        k.textContent = label;
+        k.dataset.key = label;
+
+        k.style.minWidth = width + "px";
+        k.style.height = "40px";
+        k.style.background = "rgba(50,50,50,.9)";
+        k.style.color = "white";
+        k.style.display = "flex";
+        k.style.alignItems = "center";
+        k.style.justifyContent = "center";
+        k.style.borderRadius = "6px";
+        k.style.fontSize = "12px";
+        k.style.transition = "0.08s";
+
+        k.classList.add("key");
+        keyMap[label] = k;
+        return k;
+    }
+
+    function buildFullKeyboard() {
+        const hud = document.createElement("div");
+        hud.style.display = "flex";
+        hud.style.flexDirection = "column";
+        hud.style.gap = "3px";
+        hud.style.background = "rgba(20,20,20,.85)";
+        hud.style.padding = "10px";
+        hud.style.borderRadius = "10px";
 
         const layout = [
             ['ESC', 'F1', 'F2', 'F3', 'F4', '', 'F5', 'F6', 'F7', 'F8', '', 'F9', 'F10', 'F11', 'F12'],
             ['~', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'BACK'],
             ['TAB', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\'],
-            ['CAPS', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', '\'', 'ENTER'],
+            ['CAPS', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", 'ENTER'],
             ['SHIFT', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 'SHIFT'],
-            ['CTRL', 'WIN', 'ALT', 'SPACE', 'ALT', 'FN', 'MENU', 'CTRL'],
+            ['CTRL', 'ALT', 'SPACE', 'ALT', 'CTRL'],
             ['', '', '←', '↑', '↓', '→']
         ];
 
-        const keyMap = {};
+        layout.forEach(r => {
+            const row = document.createElement("div");
+            row.style.display = "flex";
+            row.style.gap = "3px";
 
-        const hud = document.createElement('div');
-        hud.id = 'keyboardHud';
-        document.body.appendChild(hud);
-
-        const style = document.createElement('style');
-        style.textContent = `
-            #keyboardHud {
-                position: fixed;
-                top: 100px;
-                left: 100px;
-                display: flex;
-                flex-direction: column;
-                gap: 3px;
-                background: rgba(20, 20, 20, 0.8);
-                padding: 10px;
-                border-radius: 10px;
-                z-index: 999999999 !important;
-                cursor: move;
-                user-select: none;
-                pointer-events: auto;
-            }
-
-            .row {
-                display: flex;
-                gap: 3px;
-            }
-
-            .key {
-                min-width: 40px;
-                height: 40px;
-                background: rgba(50, 50, 50, 0.9);
-                color: white;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                border-radius: 4px;
-                font-size: 12px;
-                text-transform: uppercase;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-            }
-
-            .key.active {
-                background: white;
-                color: black;
-            }
-
-            .key.wide { min-width: 60px; }
-            .key.extra-wide { min-width: 100px; }
-            .key.space { min-width: 240px; }
-        `;
-        document.head.appendChild(style);
-
-        layout.forEach(rowKeys => {
-            const row = document.createElement('div');
-            row.className = 'row';
-            rowKeys.forEach(label => {
+            r.forEach(label => {
                 if (!label) {
-                    const spacer = document.createElement('div');
-                    spacer.style.width = '10px';
+                    const spacer = document.createElement("div");
+                    spacer.style.width = "10px";
                     row.appendChild(spacer);
                     return;
                 }
-                const key = document.createElement('div');
-                key.className = 'key';
-                key.textContent = label;
 
-                if (['TAB', 'CAPS', 'SHIFT', 'CTRL', 'ALT', 'BACK', 'ENTER'].includes(label)) key.classList.add('wide');
-                if (['SPACE'].includes(label)) key.classList.add('space');
-                if (['ESC', 'FN', 'MENU', 'WIN'].includes(label)) key.classList.add('extra-wide');
+                let width = 40;
+                if (['TAB', 'CAPS', 'SHIFT', 'CTRL', 'ALT', 'BACK', 'ENTER'].includes(label))
+                    width = 60;
+                if (label === "SPACE") width = 200;
 
-                row.appendChild(key);
-                keyMap[label.toUpperCase()] = key;
+                const k = createKey(label, width);
+                row.appendChild(k);
             });
+
             hud.appendChild(row);
         });
 
-        document.addEventListener('keydown', e => {
-            const label = getKeyLabel(e);
-            if (label && keyMap[label]) keyMap[label].classList.add('active');
-        });
+        // Mouse row at the bottom for full layout
+        const mouseRow = document.createElement("div");
+        mouseRow.style.display = "flex";
+        mouseRow.style.gap = "3px";
+        mouseRow.style.marginTop = "3px";
+        mouseRow.appendChild(createKey("LMB", 60));
+        mouseRow.appendChild(createKey("RMB", 60));
+        hud.appendChild(mouseRow);
 
-        document.addEventListener('keyup', e => {
-            const label = getKeyLabel(e);
-            if (label && keyMap[label]) keyMap[label].classList.remove('active');
-        });
+        return hud;
+    }
 
-        function getKeyLabel(e) {
-            if (e.code.startsWith('Arrow')) return e.key.toUpperCase();
-            if (e.key === ' ') return 'SPACE';
-            if (e.key === 'Meta') return 'WIN';
-            if (e.key === 'Control') return 'CTRL';
-            if (e.key === 'Alt') return 'ALT';
-            if (e.key === 'Shift') return 'SHIFT';
-            if (e.key === 'CapsLock') return 'CAPS';
-            if (e.key === 'Enter') return 'ENTER';
-            if (e.key === 'Tab') return 'TAB';
-            if (e.key === 'Backspace') return 'BACK';
-            return e.key.length === 1 ? e.key.toUpperCase() : e.key.toUpperCase();
+    function buildCompactKeyboard() {
+        const hud = document.createElement("div");
+        hud.style.display = "flex";
+        hud.style.flexDirection = "column";
+        hud.style.gap = "6px";
+        hud.style.background = "rgba(0,0,0,.6)";
+        hud.style.padding = "12px";
+        hud.style.borderRadius = "12px";
+
+        function row(center = false) {
+            const r = document.createElement("div");
+            r.style.display = "flex";
+            r.style.gap = "6px";
+            if (center) r.style.justifyContent = "center";
+            return r;
         }
 
-        // Drag to move
-        let isDragging = false, offsetX = 0, offsetY = 0;
-        hud.addEventListener('mousedown', e => {
-            isDragging = true;
-            offsetX = e.clientX - hud.getBoundingClientRect().left;
-            offsetY = e.clientY - hud.getBoundingClientRect().top;
-        });
-        document.addEventListener('mousemove', e => {
-            if (isDragging) {
-                hud.style.left = `${e.clientX - offsetX}px`;
-                hud.style.top = `${e.clientY - offsetY}px`;
-            }
-        });
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
+        // Top row: LMB, W, RMB
+        let r1 = row(true);
+        r1.appendChild(createKey("LMB", 60)); // wider for visibility
+        r1.appendChild(createKey("W"));       // standard width
+        r1.appendChild(createKey("RMB", 60));
+
+        let r2 = row();
+        r2.appendChild(createKey("A"));
+        r2.appendChild(createKey("S"));
+        r2.appendChild(createKey("D"));
+
+        let r3 = row();
+        r3.appendChild(createKey("Q"));
+        r3.appendChild(createKey("E"));
+
+        let r4 = row();
+        r4.appendChild(createKey("SHIFT", 100));
+
+        let r5 = row();
+        r5.appendChild(createKey("SPACE", 150));
+
+        hud.appendChild(r1);
+        hud.appendChild(r2);
+        hud.appendChild(r3);
+        hud.appendChild(r4);
+        hud.appendChild(r5);
+
+        return hud;
+    }
+
+    function mapKey(e) {
+        if (e.key === " ") return "SPACE";
+        if (e.key === "Shift") return "SHIFT";
+        if (e.key === "Control") return "CTRL";
+        if (e.key === "Alt") return "ALT";
+        if (e.key === "Enter") return "ENTER";
+        if (e.key === "Tab") return "TAB";
+        if (e.key === "Backspace") return "BACK";
+        if (e.key.startsWith('Arrow')) return e.key.toUpperCase();
+        return e.key.length === 1 ? e.key.toUpperCase() : e.key.toUpperCase();
+    }
+
+    function enableDrag() {
+        let drag = false, ox = 0, oy = 0;
+
+        container.addEventListener("mousedown", e => {
+            if (e.target.closest('.key') || e.target.closest('.toggle-btn')) return;
+            drag = true;
+            const rect = container.getBoundingClientRect();
+            ox = e.clientX - rect.left;
+            oy = e.clientY - rect.top;
         });
 
-        console.log('[Keystrokes HUD] Ready!');
+        document.addEventListener("mousemove", e => {
+            if (!drag) return;
+            container.style.left = (e.clientX - ox) + "px";
+            container.style.top = (e.clientY - oy) + "px";
+        });
+
+        document.addEventListener("mouseup", () => drag = false);
     }
 })();
